@@ -3,13 +3,13 @@
 #include <WifiManager.h>
 #include <NTPClient.h>
 #include <ArduinoJson.h>
+#include <FS.h> 
 
 #define dirPin D4
 #define stepPin D3
 #define stepsPerRevolution 200
 
 #include "A4988.h"
-#define MOTOR_STEPS 200
 #define RPM 120
 #define MICROSTEPS 1
 
@@ -27,7 +27,6 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
-
 
 long lastMsg = 0;
 char msg[50];
@@ -58,7 +57,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if (!root.success()) {
     Serial.println("parseObject() failed");
   }
-
 }
 
 void reconnect() {
@@ -81,10 +79,10 @@ void reconnect() {
 }
 
 void setup() {
-  Serial.begin(115200);
+    SPIFFS.begin(); 
+    Serial.begin(115200);
     stepper.begin(RPM, MICROSTEPS);
-    stepper.enable();
-
+    //stepper.enable();
     client.setServer(mqtt_server, 1883);
     client.setCallback(callback);
 
@@ -106,6 +104,7 @@ void loop() {
   if(turned == 0){
     turnMotor();
   }
+
   timeClient.update();
   Serial.println(timeClient.getFormattedTime());
   if(timeClient.getHours() > currentHour && currentHour != -1){
@@ -119,9 +118,14 @@ void loop() {
 
 void feedTheFish(){
   //do something to turn the motor
+  //degrees = ;
+  turned = 0;
+  turnMotor();
+
 }
 
 void turnMotor(){
+  stepper.enable();
   Serial.println("Start");
   stepper.rotate(degrees);
   snprintf (msg, 50, "turned: %ld", degrees);
@@ -129,4 +133,5 @@ void turnMotor(){
   Serial.println(msg);
   client.publish(out_topic, msg);
   turned = 1;
+  stepper.disable();
 }
