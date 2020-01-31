@@ -32,7 +32,7 @@ long lastMsg = 0;
 char msg[50];
 int degrees = 360;
 int turned = 1;
-int currentHour = -1;
+int currentHour = -1; //arno
 
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
