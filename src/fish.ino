@@ -7,6 +7,7 @@
 
 #define dirPin D4
 #define stepPin D3
+#define enablePin D2
 #define stepsPerRevolution 200
 
 #include "A4988.h"
