@@ -1,4 +1,5 @@
-String clientId = "FishFeeder_001";
+
+const char* clientID = "FishFeeder_001";
 const char* mqtt_server = "makeradmin.ddns.net";
 const char* mqtt_user = "linaro";
 const char* mqtt_pwd = "Che11as!1";

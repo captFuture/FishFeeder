@@ -86,7 +86,7 @@ void reconnect() {
     Serial.print("Attempting MQTT connection...");
     
     
-    if (client.connect(clientId.c_str(),mqtt_user, mqtt_pwd)) {
+    if (client.connect(clientID,mqtt_user, mqtt_pwd)) {
       Serial.println("connected");
       client.subscribe(in_topic);
       client.subscribe(config_topic);
@@ -158,7 +158,7 @@ void setup() {
     if(enableWifi){
       client.setServer(mqtt_server, 1883);
       client.setCallback(callback);
-      wifiManager.autoConnect("FishFeeder_001");
+      wifiManager.autoConnect(clientID);
       Serial.println("Wifi connected :)");
       timeClient.begin();
       timeClient.update();
