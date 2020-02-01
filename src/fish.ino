@@ -91,6 +91,7 @@ void reconnect() {
       client.subscribe(in_topic);
       client.subscribe(config_topic);
       client.subscribe(reboot_topic);
+      client.publish(out_topic, "Hello I am here");
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
