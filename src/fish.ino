@@ -33,7 +33,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("] ");
   String mqttopic = String(topic);
   String inTopic = String(in_topic);
-  String configTopic = String( config_topic);
+  String configTopic = String(config_topic);
+  String rebootTopic = String(reboot_topic);
   if(mqttopic == inTopic){
     char buff_p[length];
     for (int i = 0; i < length; i++) {
@@ -74,6 +75,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
     }
   
     file.close();
+  }else if(mqttopic == rebootTopic){
+    ESP.restart();
   }
 }
 
@@ -87,6 +90,7 @@ void reconnect() {
       Serial.println("connected");
       client.subscribe(in_topic);
       client.subscribe(config_topic);
+      client.subscribe(reboot_topic);
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -97,16 +101,9 @@ void reconnect() {
   }
 }
 
-void setup() {
-    Serial.begin(115200);
-    while (!Serial) 
-    { 
-      ; // Wait for serial to connect 
-    }
-
-    //read configuration from FS json
+void readSpiffs(){
+  //read configuration from FS json
     Serial.println("mounting FS...");
-
     if (SPIFFS.begin()) {
       Serial.println("mounted file system");
       if (SPIFFS.exists("/config.json")) {
@@ -144,40 +141,63 @@ void setup() {
       Serial.println("failed to mount FS");
     }
     //end read
+}
+
+void setup() {
+    Serial.begin(115200);
+    while (!Serial) 
+    { 
+      ; // Wait for serial to connect 
+    }
+
+    readSpiffs();
 
     stepper.begin(RPM, MICROSTEPS);
     stepper.setEnableActiveState(LOW);
-    //stepper.enable();
-    client.setServer(mqtt_server, 1883);
-    client.setCallback(callback);
 
-    wifiManager.autoConnect("FishFeeder_001");
-    Serial.println("Wifi connected :)");
-    timeClient.begin();
-    timeClient.update();
-    currentHour =  timeClient.getHours();
-    Serial.print("hours:"); Serial.println(currentHour);
+    if(enableWifi){
+      client.setServer(mqtt_server, 1883);
+      client.setCallback(callback);
+      wifiManager.autoConnect("FishFeeder_001");
+      Serial.println("Wifi connected :)");
+      timeClient.begin();
+      timeClient.update();
+      currentHour =  timeClient.getHours();
+      Serial.print("Startup hours:"); Serial.println(currentHour);
+    }
 }
+
 void loop() {
-  if (!client.connected()) {
-    reconnect();
+  if(enableWifi){
+    if (!client.connected()) {
+      reconnect();
+    }
+    client.loop();
+
+    timeClient.update();
+    loopHour = timeClient.getHours();
+    //Serial.print("Loop hours:"); 
+    //Serial.println(loopHour);
+
+    if(currentHour != -1){
+      if(loopHour > currentHour){
+        if(currentHour >= startHour && currentHour <= endHour){
+          Serial.println("FeedTheFish");
+          feedTheFish();
+          currentHour = timeClient.getHours();
+        }
+      }
+    }
+
+  }else{
+    // TODO - manual mode without timeserver 
   }
-  client.loop();
 
   if(turned == 0){
+    Serial.println("Turning in loop");
     turnMotor();
   }
 
-  timeClient.update();
-  //Serial.println(timeClient.getFormattedTime());
-  //Serial.println(timeClient.getHours());
-  if(timeClient.getHours() > currentHour ){
-    if(currentHour != -1){
-      Serial.println("FeedTheFish");
-      feedTheFish();
-      currentHour = timeClient.getHours();
-    }
-  }
   delay(1000);
 }
 
@@ -191,11 +211,13 @@ void feedTheFish(){
 void turnMotor(){
   stepper.enable();
   Serial.print("Start: "); Serial.println(degrees);
-  stepper.rotate(degrees);
-  snprintf (msg, 50, "turned: %d", degrees);
-  Serial.print("Publish message: ");
-  Serial.println(msg);
-  client.publish(out_topic, msg);
+  stepper.rotate(amount*degrees);
+  if(enableWifi){
+    snprintf (msg, 50, "turned: %d", degrees);
+    Serial.print("Publish message: ");
+    Serial.println(msg);
+    client.publish(out_topic, msg);
+  }
   turned = 1;
   stepper.disable();
 }
