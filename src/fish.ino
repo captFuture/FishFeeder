@@ -1,12 +1,26 @@
 #include "variables.h"
+
 #include <Arduino.h>
-#include <M5Stack.h>
 #include <PubSubClient.h>
 #include <WifiManager.h>
 #include <NTPClient.h>
 #include <ArduinoJson.h>
 #include <FS.h>
 #include "A4988.h"
+#include <M5Stack.h>
+
+#include "GUIslice.h"
+#include "GUIslice_drv.h"
+// Include any extended elements
+#include "elem/XCheckbox.h"
+#include "elem/XProgress.h"
+#include "elem/XSlider.h"
+// Ensure config settings are correct for the sketch
+#if !defined(DRV_DISP_M5STACK) || !defined(DRV_TOUCH_M5STACK) || !(GSLC_FEATURE_INPUT)
+#warning "This sketch requires config: #define DRV_TOUCH_M5TACK, #define DRV_TOUCH_M5STACK, #define GSLC_FEATURE_INPUT 1"
+#endif
+
+#include "guivariables.h"
 
 #define stepsPerRevolution 200
 #define RPM 120
@@ -20,6 +34,7 @@ PubSubClient client(espClient);
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
 
+// Getting commands from MQTT and save to spiffs if config is sent
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
@@ -73,12 +88,11 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
 }
 
+// Reconnect MQTT if disconnected
 void reconnect() {
   // Loop until we're reconnected
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
-    
-    
     if (client.connect(clientID,mqtt_user, mqtt_pwd)) {
       Serial.println("connected");
       client.subscribe(in_topic);
@@ -95,6 +109,7 @@ void reconnect() {
   }
 }
 
+// Read config from spiffs memory
 void readSpiffs(){
   //read configuration from FS json
     Serial.println("mounting FS...");
@@ -137,13 +152,12 @@ void readSpiffs(){
     //end read
 }
 
+
 void setup() {
     Serial.begin(115200);
-    while (!Serial) 
-    { 
-      ; // Wait for serial to connect 
-    }
-
+    while (!Serial){}
+    //gslc_InitDebug(&DebugOut);
+    createGui();
     readSpiffs();
 
     stepper.begin(RPM, MICROSTEPS);
@@ -173,6 +187,7 @@ void loop() {
     //Serial.print("Loop hours:"); 
     //Serial.println(loopHour);
 
+    // Rotate Motors if one hour is over
     if(currentHour != -1){
       if(loopHour > currentHour){
         if(currentHour >= startHour && currentHour <= endHour){
@@ -183,16 +198,19 @@ void loop() {
       }
     }
 
-  }else{
-    // TODO - manual mode without timeserver 
-  }
+    }else{
+      // TODO - manual mode without timeserver 
+    }
 
   if(turned == 0){
     Serial.println("Turning in loop");
     turnMotor();
   }
 
-  delay(1000);
+
+  
+  updateGui();
+  delay(10);
 }
 
 void feedTheFish(){
@@ -215,3 +233,5 @@ void turnMotor(){
   turned = 1;
   stepper.disable();
 }
+
+
