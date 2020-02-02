@@ -1,27 +1,29 @@
 #include "variables.h"
 #include <Arduino.h>
+#include <M5Stack.h>
 #include <PubSubClient.h>
-#include <WifiManager.h>
 #include <NTPClient.h>
 #include <ArduinoJson.h>
-#include <FS.h> 
-#include <EasyButton.h>
-
-#define dirPin D4
-#define stepPin D3
-#define enablePin D2
-#define stepsPerRevolution 200
-
+//#include <FS.h>
+//#include "SPIFFS.h"
 #include "A4988.h"
+
+#include <WiFi.h>
+#include <DNSServer.h>
+#if defined(ESP8266)
+#include <ESP8266WebServer.h>
+#else
+#include <WebServer.h>
+#endif
+#include <WiFiManager.h>
+
+#define stepsPerRevolution 200
 #define RPM 120
 #define MICROSTEPS 1
 
 StaticJsonBuffer<200> jsonBuffer;
-//A4988 stepper(stepsPerRevolution, dirPin, stepPin);
 A4988 stepper(stepsPerRevolution, dirPin, stepPin, enablePin);
-
 WiFiManager wifiManager;
-
 WiFiClient espClient;
 PubSubClient client(espClient);
 WiFiUDP ntpUDP;
