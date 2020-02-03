@@ -4,26 +4,12 @@
 #include <WifiManager.h>
 #include <NTPClient.h>
 #include <ArduinoJson.h>
+#include <Update.h>
 #include <FS.h>
+#include <SD.h>
+#include "SPIFFS.h"
 #include "A4988.h"
 #include <M5Stack.h>
-
-#include "GUIslice.h"
-#include "GUIslice_drv.h"
-// Include any extended elements
-#include "elem/XCheckbox.h"
-#include "elem/XProgress.h"
-#include "elem/XSlider.h"
-// Ensure config settings are correct for the sketch
-#if !defined(DRV_DISP_M5STACK) || !defined(DRV_TOUCH_M5STACK) || !(GSLC_FEATURE_INPUT)
-#warning "This sketch requires config: #define DRV_TOUCH_M5TACK, #define DRV_TOUCH_M5STACK, #define GSLC_FEATURE_INPUT 1"
-#endif
-
-#include "guivariables.h"
-
-#define stepsPerRevolution 200
-#define RPM 120
-#define MICROSTEPS 1
 
 StaticJsonBuffer<200> jsonBuffer;
 A4988 stepper(stepsPerRevolution, dirPin, stepPin, enablePin);
@@ -33,134 +19,15 @@ PubSubClient client(espClient);
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
 
-// Getting commands from MQTT and save to spiffs if config is sent
-void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  String mqttopic = String(topic);
-  String inTopic = String(in_topic);
-  String configTopic = String(config_topic);
-  String rebootTopic = String(reboot_topic);
-  if(mqttopic == inTopic){
-    char buff_p[length];
-    for (int i = 0; i < length; i++) {
-      Serial.print((char)payload[i]);
-      buff_p[i] = (char)payload[i];
-    }
-    Serial.println();
-    buff_p[length] = '\0';
-    String msg_p = String(buff_p);
-    degrees = msg_p.toInt(); // to Int
-    turned = 0;
-
-  }else if(mqttopic == configTopic){
-    char buff_p[length];
-    for (int i = 0; i < length; i++) {
-      Serial.print((char)payload[i]);
-      buff_p[i] = (char)payload[i];
-    }
-    Serial.println();
-    buff_p[length] = '\0';
-    String msg_p = String(buff_p);
-    Serial.println(msg_p);
-    File file = SPIFFS.open("/config.json", "w");
- 
-    if (!file) {
-      Serial.println("Error opening file for writing");
-      return;
-    }
-  
-    int bytesWritten = file.print(msg_p);
-  
-    if (bytesWritten > 0) {
-      Serial.println("File was written");
-      Serial.println(bytesWritten);
-  
-    } else {
-      Serial.println("File write failed");
-    }
-  
-    file.close();
-  }else if(mqttopic == rebootTopic){
-    ESP.restart();
-  }
-}
-
-// Reconnect MQTT if disconnected
-void reconnect() {
-  // Loop until we're reconnected
-  while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    if (client.connect(clientID,mqtt_user, mqtt_pwd)) {
-      Serial.println("connected");
-      client.subscribe(in_topic);
-      client.subscribe(config_topic);
-      client.subscribe(reboot_topic);
-      client.publish(out_topic, "Hello I am here");
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      
-      delay(5000);
-    }
-  }
-}
-
-// Read config from spiffs memory
-void readSpiffs(){
-  //read configuration from FS json
-    Serial.println("mounting FS...");
-    if (SPIFFS.begin()) {
-      Serial.println("mounted file system");
-      if (SPIFFS.exists("/config.json")) {
-        //file exists, reading and loading
-        Serial.println("reading config file");
-        File configFile = SPIFFS.open("/config.json", "r");
-        if (configFile) {
-          Serial.println("opened config file");
-          size_t size = configFile.size();
-          // Allocate a buffer to store contents of the file.
-          std::unique_ptr<char[]> buf(new char[size]);
-
-          configFile.readBytes(buf.get(), size);
-          DynamicJsonBuffer jsonBuffer;
-          JsonObject& json = jsonBuffer.parseObject(buf.get());
-          json.printTo(Serial);
-          if (json.success()) {
-            Serial.println("\nparsed json");
-            degrees = json["degrees"];
-            amount = json["amount"];
-            startHour = json["start"];
-            endHour = json["end"];
-            mqtt_server = json["mqtt_server"];
-            mqtt_user = json["mqtt_user"];
-            mqtt_pwd = json["mqtt_pwd"];
-
-            Serial.println(degrees);
-            Serial.println(amount);
-            Serial.println(startHour);
-            Serial.println(endHour);
-            //strcpy(output, json["output"]);
-          } else {
-            Serial.println("failed to load json config");
-          }
-        }
-      }
-    } else {
-      Serial.println("failed to mount FS");
-    }
-    //end read
-}
-
-
 void setup() {
     Serial.begin(115200);
     while (!Serial){}
+    M5.begin();
     //gslc_InitDebug(&DebugOut);
-    createGui();
-    readSpiffs();
+    //createGui();
+    initSD();
+    initSpiffs();
+    
 
     stepper.begin(RPM, MICROSTEPS);
     stepper.setEnableActiveState(LOW);
@@ -173,6 +40,7 @@ void setup() {
       timeClient.begin();
       timeClient.update();
       currentHour =  timeClient.getHours();
+      currentMinute = timeClient.getMinutes();
       Serial.print("Startup hours:"); Serial.println(currentHour);
     }
 }
@@ -186,6 +54,7 @@ void loop() {
 
     timeClient.update();
     loopHour = timeClient.getHours();
+    loopMinute = timeClient.getMinutes();
     //Serial.print("Loop hours:"); 
     //Serial.println(loopHour);
 
@@ -193,10 +62,21 @@ void loop() {
     if(currentHour != -1){
       if(loopHour > currentHour){
         if(currentHour >= startHour && currentHour <= endHour){
-          Serial.println("FeedTheFish");
+          Serial.println("FeedTheFish Hours");
           feedTheFish();
           currentHour = timeClient.getHours();
         }
+      }
+    }
+
+    // Rotate Motors if one minute is over
+    if(currentMinute != -1){
+      if(loopMinute > currentMinute){
+        //if(currentMinute >= startHour && currentHour <= endHour){
+          Serial.println("FeedTheFish Minutes");
+          feedTheFish();
+          currentMinute = timeClient.getMinutes();
+        //}
       }
     }
 
@@ -209,31 +89,10 @@ void loop() {
     turnMotor();
   }
 
-
-  
-  updateGui();
+  //updateGui();
   delay(10);
+  M5.update();
 }
 
-void feedTheFish(){
-  //do something to turn the motor
-  //degrees = ;
-  turned = 0;
-  turnMotor();
-}
-
-void turnMotor(){
-  stepper.enable();
-  Serial.print("Start: "); Serial.println(degrees);
-  stepper.rotate(amount*degrees);
-  if(enableWifi){
-    snprintf (msg, 50, "turned: %d", degrees);
-    Serial.print("Publish message: ");
-    Serial.println(msg);
-    client.publish(out_topic, msg);
-  }
-  turned = 1;
-  stepper.disable();
-}
 
 

@@ -1,9 +1,14 @@
 {
     "start": 8,
     "end": 18,
-    "amount": 160,
+    "amount": 1,
     "degrees": 360,
-    "mqtt_server":"192.168.0.105",
+	"clientID": "FishFeeder_000",
+    "mqtt_server":"mrtarantl.ddns.net",
     "mqtt_user":"megara",
-    "mqtt_pwd":"Che11as!1"
+    "mqtt_pwd":"Che11as!1",
+	"out_topic": "fish/000/out",
+	"in_topic": "fish/000/in",
+	"config_topic": "fish/000/config",
+	"reboot_topic": "fish/000/reboot"
 }
