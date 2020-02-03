@@ -1,3 +1,7 @@
+char version[6] = "0.0.1";    // Firmware version
+int display_brightness = 200;         // display brightness 0-255
+
+
 char clientID[] = "FishFeeder_initial";
 //const char* mqtt_server = "makeradmin.ddns.net";
 //const char* mqtt_user = "linaro";
@@ -15,6 +19,7 @@ char reboot_topic[] = "fish/initial/reboot";
 
 long lastMsg = 0;
 char msg[300];
+char grbl[30];
 int degrees = 360;
 int amount = 1;
 int startHour = 0;
@@ -26,8 +31,10 @@ int loopHour = -1;
 int loopMinute = -1;
 bool enableWifi = true;     // standalone mode without wifi -> false
 bool debugMode = true;
+int btnFocus = 0;
 
 bool SDpresent = true;
+bool stepMotorModule = true;
 
 #define stepsPerRevolution 200
 #define RPM 120
@@ -35,3 +42,8 @@ bool SDpresent = true;
 #define dirPin 23
 #define stepPin 19
 #define enablePin 18
+
+#define STEPMOTOR_I2C_ADDR 0x70
+
+extern const unsigned char ma_logo[];
+extern const unsigned char ma_gui[];
