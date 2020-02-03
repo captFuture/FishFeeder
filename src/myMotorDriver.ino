@@ -10,7 +10,7 @@ void turnMotor(){
   Serial.print("Start: "); Serial.println(degrees);
   stepper.rotate(degrees);
   
-    snprintf (msg, 50, "turned: %d", degrees);
+    snprintf (msg, 50, "Motor turned: %d degrees", degrees);
     Serial.print("Publish message: ");
     Serial.println(msg);
     client.publish(out_topic, msg);

@@ -25,6 +25,7 @@ int currentMinute = -1;
 int loopHour = -1;
 int loopMinute = -1;
 bool enableWifi = true;     // standalone mode without wifi -> false
+bool debugMode = true;
 
 bool SDpresent = true;
 

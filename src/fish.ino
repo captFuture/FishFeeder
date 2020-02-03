@@ -58,25 +58,27 @@ void loop() {
     //Serial.print("Loop hours:"); 
     //Serial.println(loopHour);
 
-    // Rotate Motors if one hour is over
-    if(currentHour != -1){
-      if(loopHour > currentHour){
-        if(currentHour >= startHour && currentHour <= endHour){
-          Serial.println("FeedTheFish Hours");
-          feedTheFish();
-          currentHour = timeClient.getHours();
+    if(debugMode){
+      // Rotate Motors if one minute is over
+      if(currentMinute != -1){
+        if(loopMinute > currentMinute){
+          //if(currentMinute >= startHour && currentHour <= endHour){
+            Serial.println("FeedTheFish Minutes");
+            feedTheFish();
+            currentMinute = timeClient.getMinutes();
+          //}
         }
       }
-    }
-
-    // Rotate Motors if one minute is over
-    if(currentMinute != -1){
-      if(loopMinute > currentMinute){
-        //if(currentMinute >= startHour && currentHour <= endHour){
-          Serial.println("FeedTheFish Minutes");
-          feedTheFish();
-          currentMinute = timeClient.getMinutes();
-        //}
+    }else{
+      // Rotate Motors if one hour is over
+      if(currentHour != -1){
+        if(loopHour > currentHour){
+          if(currentHour >= startHour && currentHour <= endHour){
+            Serial.println("FeedTheFish Hours");
+            feedTheFish();
+            currentHour = timeClient.getHours();
+          }
+        }
       }
     }
 
