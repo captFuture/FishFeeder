@@ -17,7 +17,6 @@
 #define MICROSTEPS 1
 
 StaticJsonBuffer<200> jsonBuffer;
-//A4988 stepper(stepsPerRevolution, dirPin, stepPin);
 A4988 stepper(stepsPerRevolution, dirPin, stepPin, enablePin);
 
 WiFiManager wifiManager;
@@ -164,6 +163,7 @@ void setup() {
       timeClient.begin();
       timeClient.update();
       currentHour =  timeClient.getHours();
+      currentMinute = timeClient.getMinutes();
       Serial.print("Startup hours:"); Serial.println(currentHour);
     }
 }
@@ -177,15 +177,30 @@ void loop() {
 
     timeClient.update();
     loopHour = timeClient.getHours();
+    loopMinute = timeClient.getMinutes();
     //Serial.print("Loop hours:"); 
     //Serial.println(loopHour);
 
-    if(currentHour != -1){
-      if(loopHour > currentHour){
-        if(currentHour >= startHour && currentHour <= endHour){
-          Serial.println("FeedTheFish");
-          feedTheFish();
-          currentHour = timeClient.getHours();
+    if(debugMode){
+      // Rotate Motors if one minute is over
+      if(currentMinute != -1){
+        if(loopMinute > currentMinute){
+          //if(currentMinute >= startHour && currentHour <= endHour){
+            Serial.println("FeedTheFish Minutes");
+            feedTheFish();
+            currentMinute = timeClient.getMinutes();
+          //}
+        }
+      }
+    }else{
+      // Rotate Motors if one hour is over
+      if(currentHour != -1){
+        if(loopHour > currentHour){
+          if(currentHour >= startHour && currentHour <= endHour){
+            Serial.println("FeedTheFish Hours");
+            feedTheFish();
+            currentHour = timeClient.getHours();
+          }
         }
       }
     }

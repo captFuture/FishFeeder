@@ -15,6 +15,10 @@ int amount = 1;
 int startHour = 0;
 int endHour = 0;
 int turned = 1;             // set to 0 and it rotates on startup
+bool enableWifi = true;     // standalone mode without wifi -> false ... not working at the moment
+
+bool debugMode = true;      // if debug is on, it rotates every minute instead every hour
 int currentHour = -1;
+int currentMinute = -1;
 int loopHour = -1;
-bool enableWifi = true;     // standalone mode without wifi -> false
+int loopMinute = -1;
