@@ -5,7 +5,7 @@
 #include <NTPClient.h>
 #include <ArduinoJson.h>
 #include <FS.h> 
-#include <EasyButton.h>
+
 
 #define dirPin D4
 #define stepPin D3
@@ -123,12 +123,12 @@ void readSpiffs(){
           if (json.success()) {
             Serial.println("\nparsed json");
             degrees = json["degrees"];
-            amount = json["amount"];
+            interval = json["interval"];
             startHour = json["start"];
             endHour = json["end"];
 
             Serial.println(degrees);
-            Serial.println(amount);
+            Serial.println(interval);
             Serial.println(startHour);
             Serial.println(endHour);
             //strcpy(output, json["output"]);
@@ -149,13 +149,9 @@ void setup() {
     { 
       ; // Wait for serial to connect 
     }
-
     readSpiffs();
-
     stepper.begin(RPM, MICROSTEPS);
     stepper.setEnableActiveState(LOW);
-
-    if(enableWifi){
       client.setServer(mqtt_server, 1883);
       client.setCallback(callback);
       wifiManager.autoConnect(clientID);
@@ -164,12 +160,12 @@ void setup() {
       timeClient.update();
       currentHour =  timeClient.getHours();
       currentMinute = timeClient.getMinutes();
+      currentEpochTime = timeClient.getEpochTime();
       Serial.print("Startup hours:"); Serial.println(currentHour);
-    }
+      Serial.print("Startup epoch:"); Serial.println(currentEpochTime); 
 }
 
 void loop() {
-  if(enableWifi){
     if (!client.connected()) {
       reconnect();
     }
@@ -178,36 +174,24 @@ void loop() {
     timeClient.update();
     loopHour = timeClient.getHours();
     loopMinute = timeClient.getMinutes();
+    loopEpochTime = timeClient.getEpochTime();
+    //Serial.print("Loop epoch:"); Serial.println(loopEpochTime); 
+
     //Serial.print("Loop hours:"); 
     //Serial.println(loopHour);
 
-    if(debugMode){
-      // Rotate Motors if one minute is over
-      if(currentMinute != -1){
-        if(loopMinute > currentMinute){
-          //if(currentMinute >= startHour && currentHour <= endHour){
-            Serial.println("FeedTheFish Minutes");
+      // Rotate Motors if interval in minutes is over
+      if(currentEpochTime != -1){
+        //Serial.print("Current epoch:"); Serial.println(currentEpochTime); 
+        //Serial.print("calculus var:"); Serial.println(currentEpochTime+(interval*60)); 
+        if(loopEpochTime > (currentEpochTime+interval*60)){
+          if(loopHour >= startHour && loopHour <= endHour){
+            Serial.println("FeedTheFish epochTime");
             feedTheFish();
-            currentMinute = timeClient.getMinutes();
-          //}
-        }
-      }
-    }else{
-      // Rotate Motors if one hour is over
-      if(currentHour != -1){
-        if(loopHour > currentHour){
-          if(currentHour >= startHour && currentHour <= endHour){
-            Serial.println("FeedTheFish Hours");
-            feedTheFish();
-            currentHour = timeClient.getHours();
+            currentEpochTime = timeClient.getEpochTime();
           }
         }
       }
-    }
-
-  }else{
-    // TODO - manual mode without timeserver 
-  }
 
   if(turned == 0){
     Serial.println("Turning in loop");
@@ -226,8 +210,15 @@ void feedTheFish(){
 
 void turnMotor(){
   stepper.enable();
-  Serial.print("Start: "); Serial.println(degrees);
-  stepper.rotate(amount*degrees);
+  delay(1000);
+  Serial.print("-45:");
+  stepper.rotate(-45);
+  Serial.println("45: ");
+  delay(1000);
+  stepper.rotate(45);
+  //delay(2000);
+  Serial.print("Start : "); Serial.println(degrees);
+  stepper.rotate(degrees);
   if(enableWifi){
     snprintf (msg, 50, "turned: %d", degrees);
     Serial.print("Publish message: ");
