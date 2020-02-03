@@ -1,5 +1,4 @@
 #include "variables.h"
-
 #include <Arduino.h>
 #include <PubSubClient.h>
 #include <WifiManager.h>
@@ -64,7 +63,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Serial.println();
     buff_p[length] = '\0';
     String msg_p = String(buff_p);
-    Serial.println(msg_p); 
+    Serial.println(msg_p);
     File file = SPIFFS.open("/config.json", "w");
  
     if (!file) {
@@ -135,6 +134,9 @@ void readSpiffs(){
             amount = json["amount"];
             startHour = json["start"];
             endHour = json["end"];
+            mqtt_server = json["mqtt_server"];
+            mqtt_user = json["mqtt_user"];
+            mqtt_pwd = json["mqtt_pwd"];
 
             Serial.println(degrees);
             Serial.println(amount);

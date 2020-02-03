@@ -1,8 +1,12 @@
-
 const char* clientID = "FishFeeder_032";
-const char* mqtt_server = "makeradmin.ddns.net";
-const char* mqtt_user = "linaro";
-const char* mqtt_pwd = "Che11as!1";
+//const char* mqtt_server = "makeradmin.ddns.net";
+//const char* mqtt_user = "linaro";
+//const char* mqtt_pwd = "Che11as!1";
+
+const char *mqtt_server = "192.168.0.105";
+const char *mqtt_user = "megara";
+const char *mqtt_pwd = "Che11as!1";
+
 const char* out_topic = "fish/032/out";
 const char* in_topic = "fish/032/in";
 const char* config_topic = "fish/032/config";
