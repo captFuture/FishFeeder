@@ -2,9 +2,9 @@
 char version[6] = "0.0.1";    // Firmware version
 
 char clientID[] = "FishFeeder_initial";
-char mqtt_server[] = "mrtarantl.ddns.net";
-char mqtt_user[] = "megara";
-char mqtt_pwd[] = "Che11as!1";
+char mqtt_server[] = "makeradmin.ddns.net";
+char mqtt_user[] = "maker";
+char mqtt_pwd[] = "18arno10";
 
 char out_topic[] = "fish/initial/telemetry";
 char in_topic[] = "fish/initial/command";

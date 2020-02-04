@@ -4,12 +4,12 @@
     "end": 18,
     "interval": 10,
     "degrees": 360,
-	"clientID": "FishFeeder_000",
-    "mqtt_server":"mrtarantl.ddns.net",
+	"clientID": "FishFeeder_dev",
+    "mqtt_server":"makeradmin.ddns.net",
     "mqtt_user":"maker",
     "mqtt_pwd":"18arno10",
-	"out_topic": "fish/000/telemetry",
-	"in_topic": "fish/000/command",
-	"config_topic": "fish/000/config",
-	"reboot_topic": "fish/000/reboot"
+	"out_topic": "fish/dev/telemetry",
+	"in_topic": "fish/dev/command",
+	"config_topic": "fish/dev/config",
+	"reboot_topic": "fish/dev/reboot"
 }
