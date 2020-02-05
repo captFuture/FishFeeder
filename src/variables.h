@@ -21,9 +21,12 @@ int loopHour = -1;
 int loopMinute = -1;
 int loopEpochTime = -1;
 int configLoaded = 0;
+int celsius = 15;
 
 #define xstr(a) str(a)
 #define str(a) #a
+
+#define tempPin D1
 
 #define dirPin D4
 #define stepPin D3
