@@ -11,5 +11,6 @@
 	"out_topic": "fish/dev/telemetry",
 	"in_topic": "fish/dev/command",
 	"config_topic": "fish/dev/config",
-	"reboot_topic": "fish/dev/reboot"
+    "reboot_topic": "fish/dev/reboot",
+    "http_update": "http://tarantl.com/fishfeeder/dev/firmware.bin"
 }

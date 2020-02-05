@@ -1,4 +1,12 @@
-#include "variables.h"
+
+#define RELEASE FRELEASE
+
+#if RELEASE == true
+  #include "variables.h"
+#else
+  #include "variables_dev.h"
+#endif
+
 #include <Arduino.h>
 #include <PubSubClient.h>
 #include <WifiManager.h>
@@ -6,27 +14,19 @@
 #include <ArduinoJson.h>
 #include <FS.h> 
 #include <ESP8266httpUpdate.h>
-
-#define dirPin D4
-#define stepPin D3
-#define enablePin D2
-#define stepsPerRevolution 200
-
 #include "A4988.h"
-#define RPM 120
-#define MICROSTEPS 1
 
 StaticJsonBuffer<500> jsonBuffer;
 A4988 stepper(stepsPerRevolution, dirPin, stepPin, enablePin);
 
 WiFiManager wifiManager;
 
-WiFiClient espClient;
-PubSubClient client(espClient);
+WiFiClient wifiClient;
+PubSubClient client(wifiClient);
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
 
-void callback(char* topic, byte* payload, unsigned int length) {
+void callback(char* topic, byte* payload, int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("] ");
@@ -70,12 +70,13 @@ void callback(char* topic, byte* payload, unsigned int length) {
     if (bytesWritten > 0) {
       Serial.println("File was written");
       Serial.println(bytesWritten);
-  
+      
     } else {
       Serial.println("File write failed");
     }
   
     file.close();
+    ESP.reset();
   }else if(mqttopic == rebootTopic){
     char buff_p[length];
     for (int i = 0; i < length; i++) {
@@ -86,29 +87,34 @@ void callback(char* topic, byte* payload, unsigned int length) {
     buff_p[length] = '\0';
     String msg_p = String(buff_p);
     int command = msg_p.toInt(); // to Int
+
     if(command == 0){
       Serial.println("update firmware");
       httpUpdate();
-    }else{
+    }else if (command == 1){
       ESP.restart();
+    }else{
+
     }
+
   }
 }
 
 void reconnect() {
   // Loop until we're reconnected
   while (!client.connected()) {
-    Serial.print("Attempting MQTT connection to - ");
-    Serial.print(mqtt_server);
-    Serial.println(" - ");
-    Serial.print(mqtt_user);
-    Serial.println(" - ");
-    Serial.print(mqtt_pwd);
-    Serial.println(" - ");
-    Serial.print("in_topic: "); Serial.println(in_topic);
-    Serial.print("out_topic: "); Serial.println(out_topic);
-    Serial.print("config_topic: "); Serial.println(config_topic);
-    
+    if(debugMode){
+      Serial.print("Attempting MQTT connection to - ");
+      Serial.print(mqtt_server);
+      Serial.println(" - ");
+      Serial.print(mqtt_user);
+      Serial.println(" - ");
+      Serial.print(mqtt_pwd);
+      Serial.println(" - ");
+      Serial.print("in_topic: "); Serial.println(in_topic);
+      Serial.print("out_topic: "); Serial.println(out_topic);
+      Serial.print("config_topic: "); Serial.println(config_topic);
+  }
     
     if (client.connect(clientID,mqtt_user, mqtt_pwd)) {
     //if (client.connect(clientID,"megara", "Che11as!1")) {
@@ -116,8 +122,8 @@ void reconnect() {
       client.subscribe(in_topic);
       client.subscribe(config_topic);
       client.subscribe(reboot_topic);
-      snprintf (msg, 50, "Connected");
-      
+      snprintf (msg, 50, "Connected:%i", configLoaded);
+      //snprintf (msg, 50, "Connected:");
       postTelemetry(msg);
     } else {
       Serial.print("failed, rc=");
@@ -152,47 +158,59 @@ void readSpiffs(){
           DynamicJsonBuffer jsonBuffer;
           JsonObject& json = jsonBuffer.parseObject(buf.get());
           json.printTo(Serial);
+
           if (json.success()) {
-            Serial.println("\nparsed json");
-            degrees = json["degrees"];
-            interval = json["interval"];
-            startHour = json["start"];
-            endHour = json["end"];
+            if(json["erase"]){
+              SPIFFS.remove("/config.json");
+              ESP.reset();
+            }else{
+              Serial.println("\nparsed json");
+              degrees = json["degrees"];
+              interval = json["interval"];
+              startHour = json["start"];
+              endHour = json["end"];
 
-            strcpy(clientID, json["clientID"]);
-            strcpy(mqtt_server, json["mqtt_server"]);
-            strcpy(mqtt_user, json["mqtt_user"]);
-            strcpy(mqtt_pwd, json["mqtt_pwd"]);
+              strcpy(clientID, json["clientID"]);
+              strcpy(mqtt_server, json["mqtt_server"]);
+              strcpy(mqtt_user, json["mqtt_user"]);
+              strcpy(mqtt_pwd, json["mqtt_pwd"]);
 
-            strcpy(out_topic, json["out_topic"]);
-            strcpy(in_topic, json["in_topic"]);
-            strcpy(config_topic, json["config_topic"]);
-            strcpy(reboot_topic, json["reboot_topic"]);
+              strcpy(out_topic, json["out_topic"]);
+              strcpy(in_topic, json["in_topic"]);
+              strcpy(config_topic, json["config_topic"]);
+              strcpy(reboot_topic, json["reboot_topic"]);
 
-            Serial.println(degrees);
-            Serial.println(interval);
-            Serial.println(startHour);
-            Serial.println(endHour);
+              Serial.println(degrees);
+              Serial.println(interval);
+              Serial.println(startHour);
+              Serial.println(endHour);
 
-            Serial.println(clientID);
-            Serial.println(mqtt_server);
-            Serial.println(mqtt_user);
-            Serial.println(mqtt_pwd);
+              Serial.println(clientID);
+              Serial.println(mqtt_server);
+              Serial.println(mqtt_user);
+              Serial.println(mqtt_pwd);
 
-            Serial.println(out_topic);
-            Serial.println(in_topic);
-            Serial.println(config_topic);
-            Serial.println(reboot_topic);
-            
+              Serial.println(out_topic);
+              Serial.println(in_topic);
+              Serial.println(config_topic);
+              Serial.println(reboot_topic);
+
+              configLoaded = 1;
+              
+            }
           } else {
             Serial.println("failed to load json config");
+            configLoaded = 0;
           }
+
         }
       }else{
-        Serial.println("confignot present");
+        Serial.println("config not present");
+        configLoaded = 0;
       }
     } else {
-      Serial.println("failed to mount FS");
+      Serial.println("failed to mount spiffs");
+      configLoaded = 0;
     }
     //end read
 }
@@ -200,7 +218,18 @@ void readSpiffs(){
 void setup() {
     Serial.begin(115200);
     while (!Serial){};
-    readSpiffs();
+
+    if(!debugMode){
+      readSpiffs();
+      Serial.println("\n***************************************");
+      Serial.print("*      "); Serial.print(clientID); Serial.print(" - ");  Serial.print(version); Serial.println("       *");
+      Serial.println("***************************************");
+    }else{
+      Serial.println("\n************DEBUG**********************");
+      Serial.print("*      "); Serial.print(clientID); Serial.print(" - ");  Serial.print(version); Serial.println("       *");
+      Serial.println("***************************************");
+    }
+    
     stepper.begin(RPM, MICROSTEPS);
     stepper.setEnableActiveState(LOW);
       client.setServer(mqtt_server, 1883);
@@ -266,6 +295,8 @@ void postTelemetry(char msg[]){
   String payload = "{";
   payload += "\"clientID\":"; payload += "\""; payload += clientID; payload += "\"";
   payload += ",";
+  payload += "\"version\":"; payload += "\""; payload += version; payload += "\"";
+  payload += ",";
   payload += "\"start\":"; payload += startHour;
   payload += ",";
   payload += "\"end\":"; payload += endHour;
@@ -274,7 +305,7 @@ void postTelemetry(char msg[]){
   payload += ",";
   payload += "\"weight\":"; payload += degrees;
   payload += ",";
-  payload += "\"message\":"; payload; payload += "\""; payload += msg; payload += "\"";
+  payload += "\"message\":"; payload += "\""; payload += msg; payload += "\"";
   payload += "}";
 
   char attributes[200];
@@ -284,7 +315,7 @@ void postTelemetry(char msg[]){
 
 void httpUpdate(){
   char updateString[] = "";
-  snprintf (updateString, 150, "http://tarantl.com/fishfeeder/%s/firmware.bin", clientID);
+  snprintf (updateString, 150, http_update, clientID);
   Serial.println(updateString);
   t_httpUpdate_return ret = ESPhttpUpdate.update(updateString); 
   

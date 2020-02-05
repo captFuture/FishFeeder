@@ -1,8 +1,6 @@
-
-char mqtt_server[] = "makeradmin.ddns.net";
-char mqtt_user[] = "maker";
-char mqtt_pwd[] = "18arno10";
-char http_update[] = "http://tarantl.com/fishfeeder/initial/firmware.bin";
+char mqtt_server[] = "mrtarantl.ddns.net";
+char mqtt_user[] = "megara";
+char mqtt_pwd[] = "Che11as!1";
 
 long lastMsg = 0;
 char msg[500];
@@ -13,14 +11,13 @@ int endHour = 18;
 int turned = 1;             // set to 0 and it rotates on startup
 bool enableWifi = true;     // standalone mode without wifi -> false ... not working at the moment
 
-bool debugMode = false;      
+bool debugMode = true;      
 int currentHour = -1;
 int currentMinute = -1;
 int currentEpochTime = -1;
 int loopHour = -1;
 int loopMinute = -1;
 int loopEpochTime = -1;
-int configLoaded = 0;
 
 #define xstr(a) str(a)
 #define str(a) #a
