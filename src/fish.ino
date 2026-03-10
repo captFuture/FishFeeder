@@ -1,137 +1,88 @@
+#define RELEASE FRELEASE
+
+#if RELEASE == true
+  #include "variables.h"
+#else
+  #include "variables_dev.h"
+#endif
+
 #include <Arduino.h>
 #include <PubSubClient.h>
 #include <WifiManager.h>
 #include <NTPClient.h>
 #include <ArduinoJson.h>
 #include <FS.h> 
-
-#define dirPin D4
-#define stepPin D3
-#define stepsPerRevolution 200
-
+#include <ESP8266httpUpdate.h>
 #include "A4988.h"
-#define RPM 120
-#define MICROSTEPS 1
 
-StaticJsonBuffer<200> jsonBuffer;
 
-A4988 stepper(stepsPerRevolution, dirPin, stepPin);
+StaticJsonBuffer<500> jsonBuffer;
+A4988 stepper(stepsPerRevolution, dirPin, stepPin, enablePin);
+
 WiFiManager wifiManager;
-const char* mqtt_server = "makeradmin.ddns.net";
-const char* mqtt_user = "linaro";
-const char* mqtt_pwd = "Che11as!1";
-const char* out_topic = "fish/001/out";
-const char* in_topic = "fish/001/in";
 
-WiFiClient espClient;
-PubSubClient client(espClient);
+WiFiClient wifiClient;
+PubSubClient client(wifiClient);
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
 
-long lastMsg = 0;
-char msg[50];
-int degrees = 360;
-int turned = 1;
-int currentHour = -1; //arno
-
-void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  char buff_p[length];
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
-    buff_p[i] = (char)payload[i];
-  }
-  Serial.println();
-  JsonObject& root = jsonBuffer.parseObject(buff_p);
-  int vali = root["value"];
-  Serial.println(vali); 
-
-
-  buff_p[length] = '\0';
-  String msg_p = String(buff_p);
-  degrees = msg_p.toInt(); // to Int
-  turned = 0;
-
-  if (!root.success()) {
-    Serial.println("parseObject() failed");
-  }
-}
-
-void reconnect() {
-  // Loop until we're reconnected
-  while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    String clientId = "FishFeeder_001";
-    
-    if (client.connect(clientId.c_str(),mqtt_user, mqtt_pwd)) {
-      Serial.println("connected");
-      client.subscribe(in_topic);
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      
-      delay(5000);
-    }
-  }
-}
-
 void setup() {
-    SPIFFS.begin(); 
     Serial.begin(115200);
+    while (!Serial){};
+
+    if(!debugMode){
+      readSpiffs();
+      Serial.println("\n***************************************");
+      Serial.print("*      "); Serial.print(clientID); Serial.print(" - ");  Serial.print(version); Serial.println("       *");
+      Serial.println("***************************************");
+    }else{
+      Serial.println("\n************DEBUG**********************");
+      Serial.print("*      "); Serial.print(clientID); Serial.print(" - ");  Serial.print(version); Serial.println("       *");
+      Serial.println("***************************************");
+    }
+    
     stepper.begin(RPM, MICROSTEPS);
-    //stepper.enable();
+    stepper.setEnableActiveState(LOW);
+
     client.setServer(mqtt_server, 1883);
     client.setCallback(callback);
 
-    wifiManager.autoConnect("FishFeeder_001");
+    wifiManager.setConfigPortalTimeout(180);
+    wifiManager.autoConnect(clientID);
     Serial.println("Wifi connected :)");
-    // let's say 100 complete revolutions (arbitrary number)
-    //stepper.startMove(1 * MOTOR_STEPS * MICROSTEPS);     // in microsteps
-    // stepper.startRotate(1 * 360);                     // or in degrees
+
     timeClient.begin();
+    timeClient.update();
     currentHour =  timeClient.getHours();
-    Serial.println(currentHour);
+    currentMinute = timeClient.getMinutes();
+    currentEpochTime = timeClient.getEpochTime();
+    Serial.print("Startup hours:"); Serial.println(currentHour);
+    Serial.print("Startup epoch:"); Serial.println(currentEpochTime);
+
+    //DHT dht(tempPin, DHTTYPE); 
 }
+
 void loop() {
-  if (!client.connected()) {
-    reconnect();
-  }
-  client.loop();
+    if (!client.connected()) {
+      reconnect();
+    }
+    client.loop();
 
-  if(turned == 0){
-    turnMotor();
-  }
+    timeClient.update();
+    loopHour = timeClient.getHours();
+    loopMinute = timeClient.getMinutes();
+    loopEpochTime = timeClient.getEpochTime();
 
-  timeClient.update();
-  Serial.println(timeClient.getFormattedTime());
-  if(timeClient.getHours() > currentHour && currentHour != -1){
-    Serial.println("FeedTheFish");
-    feedTheFish();
-    currentHour = timeClient.getHours();
-  }
+      // Rotate Motors if interval in minutes is over
+      if(currentEpochTime != -1){
+        if(loopEpochTime > (currentEpochTime+interval*60)){
+          if(loopHour >= startHour && loopHour <= endHour){
+            Serial.println("FeedTheFish");
+            feedTheFish();
+            currentEpochTime = timeClient.getEpochTime();
+          }
+        }
+      }
 
   delay(1000);
-}
-
-void feedTheFish(){
-  //do something to turn the motor
-  //degrees = ;
-  turned = 0;
-  turnMotor();
-
-}
-
-void turnMotor(){
-  stepper.enable();
-  Serial.println("Start");
-  stepper.rotate(degrees);
-  snprintf (msg, 50, "turned: %ld", degrees);
-  Serial.print("Publish message: ");
-  Serial.println(msg);
-  client.publish(out_topic, msg);
-  turned = 1;
-  stepper.disable();
 }
